@@ -39,7 +39,7 @@ namespace DotNedSaturday
         {
             var args = context.GetInput<NewEmployeeArgs>();
 
-            log.LogInformation("Hi, Im your orchestrator");
+            log.LogInformation("Starting orchestrator {instanceId}", context.InstanceId);
 
             /*
                     Simple activity
@@ -170,6 +170,18 @@ namespace DotNedSaturday
         //             return -1;
         //         }
         //     }
+        // }
+
+        // [FunctionName(nameof(SalaryPayout))]
+        // public static async Task SalaryPayout(
+        //     [OrchestrationTrigger] DurableOrchestrationContext context)
+        // {
+        //     await context.CallActivityAsync("TransferMoney",null);
+
+        //     var nextPayout = context.CurrentUtcDateTime.AddMonths(1);
+        //     await context.CreateTimer(nextPayout, CancellationToken.None);
+
+        //     context.ContinueAsNew(null);
         // }
     }
 }
