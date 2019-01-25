@@ -34,6 +34,7 @@ namespace DotNedSaturday
         [FunctionName(nameof(Orchestration))]
         public static async Task<string> Orchestration(
             [OrchestrationTrigger] DurableOrchestrationContext context,
+            [OrchestrationClient] DurableOrchestrationClient starter, // optional
             ILogger log)
         {
             var args = context.GetInput<NewEmployeeArgs>();
@@ -58,19 +59,24 @@ namespace DotNedSaturday
             var dealersToGetQuote = new string[] { "Athlon", "AA Lease", "Leaseplan" };
             var tasks = new List<Task<LeaseCarGetQuoteResult>>();
             foreach (var dealer in dealersToGetQuote)
-            { 
+            {
                 var task = context.CallActivityAsync<LeaseCarGetQuoteResult>(nameof(LeaseCarGetQuote), new LeaseCarGetQuoteArgs(employeeId, dealer));
                 tasks.Add(task);
-            } 
-            await Task.WhenAll(tasks); 
+            }
+            await Task.WhenAll(tasks);
             var bestQuote = tasks.OrderBy(r => r.Result.Quote).First().Result;
 
             log.LogInformation("Best quote is {amount} for dealer {dealer}", bestQuote.Quote, bestQuote.DealerName);
 
             /*
+                    Monitoring
+             */
+            await starter.StartNewAsync(nameof(AskFeedback), employeeId);
+
+            /*
                     Chaining
              */
-            context.SetCustomStatus("WaitiForManagerApproval");
+            context.SetCustomStatus("WaitingForManagerApproval");
             var approved = await context.WaitForExternalEvent<bool>("WaitForManagerApproval", TimeSpan.FromMinutes(1), false);
             if (approved)
             {
@@ -81,16 +87,6 @@ namespace DotNedSaturday
             throw new Exception("Wait wut?");
         }
 
-        public static async Task Run(DurableOrchestrationContext context)
-        {
-            var expiryTime = new DateTime(2019, 1, 27);
-
-            while (context.CurrentUtcDateTime < expiryTime)
-            {
-                var nextCheck = context.CurrentUtcDateTime.AddSeconds(30);
-                await context.CreateTimer(nextCheck, CancellationToken.None);
-            } 
-        }
 
         [FunctionName(nameof(CreateInDb))]
         public static async Task<Guid> CreateInDb(
@@ -129,8 +125,51 @@ namespace DotNedSaturday
 
             await Task.Delay(TimeSpan.FromSeconds(1));
             var quote = new Random().NextDouble() * 100000;
-            
+
             return new LeaseCarGetQuoteResult(leaseCarGetQuoteArgs.DealerName, quote);
-        } 
+        }
+
+        [FunctionName(nameof(AskFeedback))]
+        public static async Task AskFeedback(
+            [OrchestrationTrigger]DurableOrchestrationContext context)
+        {
+            var dates = new DateTime[]{
+                context.CurrentUtcDateTime.AddDays(1),
+                context.CurrentUtcDateTime.AddMonths(2),
+                context.CurrentUtcDateTime.AddYears(4)
+            };
+
+            foreach (var date in dates)
+            {
+                // send a mail or so
+                await Task.Delay(1);
+
+                await context.CreateTimer(date, CancellationToken.None);
+            }
+        }
+
+        // [FunctionName(nameof(TryGetQuote))]
+        // public static async Task<double> TryGetQuote(
+        //     [OrchestrationTrigger] DurableOrchestrationContext context)
+        // { 
+        //     using (var cts = new CancellationTokenSource())
+        //     {
+        //         var activityTask = context.CallActivityAsync<double>(nameof(LeaseCarGetQuote), null);
+        //         var timeoutTask = context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromSeconds(30)), cts.Token);
+
+        //         var winner = await Task.WhenAny(activityTask, timeoutTask);
+        //         if (winner == activityTask)
+        //         {
+        //             // success case
+        //             cts.Cancel();
+        //             return activityTask.Result;
+        //         }
+        //         else
+        //         {
+        //             // timeout case
+        //             return -1;
+        //         }
+        //     }
+        // }
     }
 }
