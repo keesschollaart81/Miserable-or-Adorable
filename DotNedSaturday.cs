@@ -32,9 +32,8 @@ namespace DotNedSaturday
         }
 
         [FunctionName(nameof(Orchestration))]
-        public static async Task<string> Orchestration(
+        public static async Task<object> Orchestration(
             [OrchestrationTrigger] DurableOrchestrationContext context,
-            [OrchestrationClient] DurableOrchestrationClient starter, // optional
             ILogger log)
         {
             var args = context.GetInput<NewEmployeeArgs>();
@@ -71,17 +70,20 @@ namespace DotNedSaturday
             /*
                     Monitoring
              */
-            await starter.StartNewAsync(nameof(AskFeedback), employeeId);
+            await context.CallActivityAsync(nameof(AskFeedbackActivity), employeeId);
 
             /*
-                    Chaining
+                    Human Intervention
              */
-            context.SetCustomStatus("WaitingForManagerApproval");
+            context.SetCustomStatus(new { WhatsUp = "WaitingForManagerApproval"});
             var approved = await context.WaitForExternalEvent<bool>("WaitForManagerApproval", TimeSpan.FromMinutes(1), false);
             if (approved)
             {
                 context.SetCustomStatus("Finished");
-                return $"End good all good, successfully created employee with id {employeeId}!";
+                return new
+                {
+                    WatVondenWeErVan = $"Epic! Successfully created employee with id {employeeId}!"
+                };
             }
 
             throw new Exception("Wait wut?");
@@ -141,11 +143,18 @@ namespace DotNedSaturday
 
             foreach (var date in dates)
             {
-                // send a mail or so
-                await Task.Delay(1);
+                // todo: send a mail or so
 
                 await context.CreateTimer(date, CancellationToken.None);
             }
+        }
+
+        [FunctionName(nameof(AskFeedbackActivity))]
+        public static async Task AskFeedbackActivity(
+            [ActivityTrigger] Guid employeeId,
+            [OrchestrationClient] DurableOrchestrationClient durableOrchestrationClient)
+        {
+            await durableOrchestrationClient.StartNewAsync(nameof(AskFeedback), null);
         }
 
         // [FunctionName(nameof(TryGetQuote))]
