@@ -9,6 +9,6 @@ The demo code / companion repo of my talk:
     
 *_'Miserable or Adorable? The 5 Durable Functions patterns explained!'_*
 
-as given on https://dotnedsaturday.nl
+as given on https://dotnedsaturday.nl and https://www.meetup.com/Azure-Thursdays/
 
 ![](Presentation/slide1.png)

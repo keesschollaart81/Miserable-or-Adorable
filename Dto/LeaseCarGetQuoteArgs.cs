@@ -1,6 +1,6 @@
 using System;
 
-namespace DotNedSaturday.Dto
+namespace MiserableOrAdorable.Dto
 {
     public class LeaseCarGetQuoteArgs
     {

@@ -1,21 +1,17 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System.Net.Http;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
-using DotNedSaturday.Dto;
+using MiserableOrAdorable.Dto;
 
-namespace DotNedSaturday
+namespace MiserableOrAdorab
 {
-    public static class DotNedSaturdayFunctions
+    public static class MiserableOrAdorableFunctions
     {
         [FunctionName(nameof(NewEmployee))]
         public static async Task<IActionResult> NewEmployee(
@@ -82,7 +78,7 @@ namespace DotNedSaturday
                 context.SetCustomStatus("Finished");
                 return new
                 {
-                    WatVondenWeErVan = $"Epic! Successfully created employee with id {employeeId}!"
+                    WhatDoYouThink = $"Epic! Successfully created employee with id {employeeId}!"
                 };
             }
 
