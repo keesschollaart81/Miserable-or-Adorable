@@ -8,6 +8,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using MiserableOrAdorable.Dto;
+using Newtonsoft.Json;
 
 namespace MiserableOrAdorab
 {
@@ -16,49 +17,43 @@ namespace MiserableOrAdorab
         [FunctionName(nameof(NewEmployee))]
         public static async Task<IActionResult> NewEmployee(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get")] NewEmployeeArgs args,
-            [OrchestrationClient] DurableOrchestrationClient durableOrchestrationClient,
+            [DurableClient] IDurableEntityClient durableEntityClient,
             ILogger log)
         {
-            var orchestrationId = await durableOrchestrationClient.StartNewAsync(nameof(Orchestration), args);
+            var employeeId = new EntityId(nameof(EmployeeEntity), "666");
+            await durableEntityClient.SignalEntityAsync<IEmployee>(employeeId, proxy => proxy.Fire("No reason"));
 
-            log.LogInformation("Started orchestration with ID = '{orchestrationId}'.", orchestrationId);
+            return new OkObjectResult("Aaaand he's gone!");
+        } 
+    }
 
-            var response = durableOrchestrationClient.CreateHttpManagementPayload(orchestrationId);
-            
-            return new OkObjectResult(response);
-        }
 
-        [FunctionName(nameof(Orchestration))]
-        public static async Task Orchestration(
-            [OrchestrationTrigger] DurableOrchestrationContext context,
-            ILogger log)
+    [JsonObject(MemberSerialization.OptIn)]
+    public class EmployeeEntity : IEmployee
+    {
+         [JsonProperty]
+        public string Id { get; set; }
+
+        public EmployeeEntity(string id)
         {
-            var args = context.GetInput<NewEmployeeArgs>();
-
-            log.LogInformation("Starting orchestrator {instanceId}", context.InstanceId); 
-
-            var employeeId = await context.CallActivityAsync<Guid>(nameof(CreateInDb), args);
-
-            log.LogInformation("Employee {id} created in DB", employeeId); 
+            Id = id;
         }
 
-
-        [FunctionName(nameof(CreateInDb))]
-        public static async Task<Guid> CreateInDb(
-            [ActivityTrigger] NewEmployeeArgs newEmployeeArgs,
-            ILogger log)
+        public async Task Fire(string reason)
         {
-            var employee = new Employee(Guid.NewGuid(), newEmployeeArgs.FullName, newEmployeeArgs.Age);
-
-            if (employee.Age > 100) throw new Exception("I cannot believe this!");
-
-            log.LogInformation("Creating {name} in database", employee.FullName);
-
-            await Task.Delay(TimeSpan.FromSeconds(employee.Age));
-
-            log.LogInformation("{name} created in database", employee.FullName);
-
-            return employee.Id;
+            await Task.Delay(TimeSpan.FromMilliseconds(1));
         }
+
+        [FunctionName(nameof(EmployeeEntity))]
+        public static async Task HandleEntityOperation([EntityTrigger] IDurableEntityContext ctx)
+        {
+            var employeeId = ctx.EntityId;
+            await ctx.DispatchAsync<EmployeeEntity>(employeeId.EntityKey);
+        }
+    }
+
+    public interface IEmployee
+    {
+        Task Fire(string reason);
     }
 }
